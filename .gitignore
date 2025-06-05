@@ -1,0 +1,23 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual Environments - Add your specific venv name if different and not covered
+.env
+.venv
+env/
+venv/
+ENV/
+VENV/
+
+# VS Code - Ignores user-specific workspace settings
+.vscode/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
