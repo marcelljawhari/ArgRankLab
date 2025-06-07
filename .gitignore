@@ -18,6 +18,9 @@ VENV/
 # VS Code - Ignores user-specific workspace settings
 .vscode/
 
+# Data
+data/
+
 # OS-generated files
 .DS_Store
 Thumbs.db
