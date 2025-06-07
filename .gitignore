@@ -21,6 +21,9 @@ VENV/
 # Data
 data/
 
+# Test scripts
+scripts/
+
 # OS-generated files
 .DS_Store
 Thumbs.db
