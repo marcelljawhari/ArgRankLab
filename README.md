@@ -19,7 +19,7 @@ The primary goal of this project is to:
 ## Setup
 
 1. Clone the repository (if remote is set up):
-   `git clone https://github.com/marcellbugovsky/ArgRankLab`
+   `git clone https://github.com/marcelljawhari/ArgRankLab`
 2. Navigate to the project directory:
    `cd ArgRankLab`
 3. Create a virtual environment (recommended):
