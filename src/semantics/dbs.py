@@ -1,122 +1,101 @@
+# semantics/dbs.py
+
 import networkx as nx
 import numpy as np
-from collections import defaultdict
+import scipy.sparse
+import time # Optional: for timing the process
 
 class Dbs:
     """
-    Implements the Discussion-based ranking semantics (Dbs) for an
-    abstract argumentation framework.
-
-    This corrected version uses matrix exponentiation of the adjacency matrix
-    to accurately count all attack paths (including non-simple ones with cycles),
-    aligning with the formal definition and the thesis example.
+    Implements the Discussion-based ranking semantics (Dbs).
     """
-
     def __init__(self, af: nx.DiGraph, max_path_length: int = 10):
-        """
-        Initializes the DbsRanking calculator.
-
-        Args:
-            af (nx.DiGraph): The argumentation framework represented as a
-                             NetworkX directed graph. Nodes are arguments, and
-                             a directed edge (u, v) means 'u attacks v'.
-            max_path_length (int): The maximum length of attack sequences to
-                                   consider. This is necessary to ensure termination.
-                                   Defaults to 10.
-        """
         if not isinstance(af, nx.DiGraph):
             raise TypeError("Argumentation framework must be a NetworkX DiGraph.")
 
         self.af = af
-        # Ensure a fixed order for matrix operations
         self.arguments = sorted(list(af.nodes))
         self.arg_to_index = {arg: i for i, arg in enumerate(self.arguments)}
+        self.num_args = len(self.arguments)
         self.max_path_length = max_path_length
         
         self._discussion_vectors = {}
         self._ranking = []
 
-        self._calculate_all()
+        self._calculate_all_optimized()
 
-    def _calculate_discussion_vector(self, argument: str) -> list[int]:
+    def _calculate_all_optimized(self):
         """
-        Calculates the discussion count vector for a single argument using
-        the adjacency matrix to count all paths.
-
-        Dis(a) = <Dis_1(a), Dis_2(a), ..., Dis_k(a)>
-        where Dis_i is based on the number of attack paths of length i (edges).
-
-        Args:
-            argument (str): The argument to calculate the vector for.
-
-        Returns:
-            The discussion count vector as a list of integers.
+        A method that first pre-computes all required matrix
+        powers, then constructs the discussion vectors in a second, fast pass.
         """
-        # Get the adjacency matrix of the graph.
-        # Note: In NetworkX/Numpy adjacency matrix M[i, j] = 1 means an edge from i to j.
-        # An attack path a_k -> ... -> a_1 -> x is a path from a_k to x.
-        # So we need the standard adjacency matrix.
-        adj_matrix = nx.to_numpy_array(self.af, nodelist=self.arguments)
+        print("Optimized Dbs calculation started...")
+        start_time = time.time()
 
-        dis_vector = [0] * self.max_path_length
-        arg_index = self.arg_to_index[argument]
+        # --- Stage 1: Pre-computation of Matrix Powers ---
+        # We use the transpose of the adjacency matrix. The number of paths of
+        # length k ENDING at node 'j' in the original graph is equal to the
+        # number of paths of length k STARTING from node 'j' in the transpose.
+        # This allows us to sum ROWS, which is faster with the 'csr' format.
+        adj_matrix_T = nx.to_scipy_sparse_array(
+            self.af, nodelist=self.arguments
+        ).transpose().tocsr()
+
+        matrix_powers = []
+        current_power = adj_matrix_T.copy()
+
+        print(f"Pre-computing {self.max_path_length} matrix powers for {self.num_args} arguments...")
+        for _ in range(self.max_path_length):
+            matrix_powers.append(current_power)
+            current_power = current_power @ adj_matrix_T
         
-        # M_power will hold the i-th power of the adjacency matrix
-        m_power = np.copy(adj_matrix)
+        print(f"Matrix power calculation finished in {time.time() - start_time:.2f} seconds.")
 
-        for i in range(1, self.max_path_length + 1):
-            # The number of paths of length 'i' from any node to 'argument'
-            # is the sum of the column corresponding to 'argument' in M^i.
-            num_paths = int(np.sum(m_power[:, arg_index]))
-            
-            # Dis_i is positive for odd length (attack) and negative for even (defense)
-            if i % 2 != 0:
-                dis_vector[i-1] = num_paths
-            else:
-                dis_vector[i-1] = -num_paths
+        # --- Stage 2: Fast Construction of Discussion Vectors ---
+        # Initialize a dictionary to hold the vectors
+        scores = {arg: [0] * self.max_path_length for arg in self.arguments}
+        
+        # Iterate through the pre-computed powers
+        for i, m_power in enumerate(matrix_powers):
+            path_length = i + 1
+            # Get the number of paths for ALL arguments at this path length at once
+            # by summing the rows of the transposed matrix power.
+            num_paths_vector = m_power.sum(axis=1).flatten() # .flatten() is the modern way
 
-            # Prepare for the next iteration: M^(i+1) = M^i * M
-            if i < self.max_path_length:
-                m_power = m_power @ adj_matrix
-                
-        return dis_vector
+            value = num_paths_vector if path_length % 2 != 0 else -num_paths_vector
 
-    def _calculate_all(self):
-        """
-        Calculates the discussion vectors for all arguments and the final ranking.
-        """
-        scores = {}
-        for arg in self.arguments:
-            scores[arg] = self._calculate_discussion_vector(arg)
+            # Assign the calculated scores for this path length to all arguments
+            for arg_idx, arg_name in enumerate(self.arguments):
+                scores[arg_name][i] = int(value[arg_idx])
+
         self._discussion_vectors = scores
+        print(f"Discussion vector construction finished in {time.time() - start_time:.2f} seconds.")
 
-        sorted_args = sorted(self.arguments, key=lambda arg: scores[arg])
+        # --- Stage 3: Sorting (same as before) ---
+        sorted_args = sorted(self.arguments, key=lambda arg: self._discussion_vectors[arg])
         
-        self._ranking = []
         if not sorted_args:
             return
 
+        self._ranking = []
         current_rank_group = {sorted_args[0]}
         for i in range(1, len(sorted_args)):
             prev_arg = sorted_args[i-1]
             curr_arg = sorted_args[i]
             
-            if scores[curr_arg] == scores[prev_arg]:
+            if self._discussion_vectors[curr_arg] == self._discussion_vectors[prev_arg]:
                 current_rank_group.add(curr_arg)
             else:
                 self._ranking.append(current_rank_group)
                 current_rank_group = {curr_arg}
         
         self._ranking.append(current_rank_group)
+        print(f"Total calculation time: {time.time() - start_time:.2f} seconds.")
 
     def get_discussion_vectors(self) -> dict[str, list[int]]:
-        """
-        Returns the calculated discussion count vector for each argument.
-        """
+        """Returns the calculated discussion count vector for each argument."""
         return self._discussion_vectors
 
     def get_ranking(self) -> list[set[str]]:
-        """
-        Returns the final ranking of arguments from most to least acceptable.
-        """
+        """Returns the final ranking of arguments from most to least acceptable."""
         return self._ranking
