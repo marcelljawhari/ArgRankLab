@@ -1,2 +1,8 @@
+-e git+https://github.com/marcelljawhari/ArgRankLab.git@03aa30625e114a1a2178f5cbf4475ae18c813dbe#egg=ArgRankLab
+iniconfig==2.1.0
 networkx==3.5
 numpy==2.2.6
+packaging==25.0
+pluggy==1.6.0
+Pygments==2.19.1
+pytest==8.4.0

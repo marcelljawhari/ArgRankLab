@@ -1,0 +1,14 @@
+# pyproject.toml
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ArgRankLab"
+version = "0.1.0"
+authors = [
+  { name="Marcell Jawhari" },
+]
+description = "An empirical correlation analysis of ranking semantics for abstract argumentation frameworks."
+requires-python = ">=3.8"
