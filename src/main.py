@@ -1,140 +1,125 @@
-# main.py (High-performance and memory-safe parallel version)
+# main.py
 
 import os
 import time
-import math
-from collections import defaultdict
-from functools import partial
-
-import networkx as nx
-from util.af_parser import parse_af_file
 import multiprocessing as mp
-import random # Use standard random inside the worker
+import networkx as nx
 
-# Import all the concrete implementation classes
-from semantics.prob.prob_admissible import ProbAdmissible
-from semantics.prob.prob_stable import ProbStable
-from semantics.prob.prob_grounded import ProbGrounded
-from semantics.prob.prob_complete import ProbComplete
-from semantics.prob.prob_preferred import ProbPreferred
-from semantics.prob.prob_ideal import ProbIdeal
+from util.af_parser import parse_af_file
+from semantics.ser import Ser
 
-# A mapping from semantics name to the corresponding class
-SEMANTICS_MAP_ANALYTICAL = {
-    "admissible": ProbAdmissible,
-    "stable": ProbStable
-}
+# --- Configuration ---
+TIMEOUT_SECONDS = 600  # 10 minutes
 
-SEMANTICS_MAP_MC = {
-    "grounded": ProbGrounded,
-    "complete": ProbComplete,
-    "preferred": ProbPreferred,
-    "ideal": ProbIdeal
-}
+def ser_worker(af: nx.DiGraph, queue: mp.Queue):
+    """
+    A dedicated worker function to run the Ser calculation.
+    This runs in a separate process to allow for a timeout.
+    """
+    try:
+        calculator = Ser(af=af)
+        ranking_groups = calculator.get_ranking()
+        queue.put(ranking_groups)
+    except Exception as e:
+        # Put the exception in the queue so the main process can report it.
+        queue.put(e)
 
-SEMANTICS_SAMPLE_COUNTS = {
-    'default': 10000,
-    'slow': 1250 
-}
+def convert_groups_to_ranking(ranking_groups: list, all_args: list) -> list:
+    """
+    Converts a list of ranked groups (sets of equally-ranked args) into a single,
+    sorted list of arguments. Arguments in earlier groups come first.
+    """
+    ranked_args = [arg for group in ranking_groups for arg in sorted(list(group))]
+    present_args_set = set(ranked_args)
+    missing_args = [arg for arg in all_args if arg not in present_args_set]
+    return ranked_args + missing_args
 
-# --- (Worker functions init_worker and worker_run_single_sample remain unchanged) ---
-worker_af = None
-def init_worker(af_to_init: nx.DiGraph):
-    global worker_af
-    worker_af = af_to_init
-
-def worker_run_single_sample(sample_index: int, SemanticsClass: type, p_val: float) -> set:
-    calculator = SemanticsClass(af=worker_af, p=p_val)
-    use_fixed_size_heuristic = len(calculator.all_nodes) > 30
-    if use_fixed_size_heuristic:
-        sample_size = min(16, len(calculator.all_nodes))
-        subgraph_nodes = random.sample(calculator.all_nodes, sample_size)
-    else:
-        subgraph_nodes = [node for node in calculator.all_nodes if random.random() < calculator.p]
-    subgraph = worker_af.subgraph(subgraph_nodes)
-    if not subgraph.nodes: return set()
-    extensions = calculator._find_extensions_in_subgraph(subgraph)
-    if not extensions: return set()
-    return set.union(*map(set, extensions))
-# --- (End of worker functions) ---
-
-
-def run_prob_for_all_semantics(framework_path: str, p_val: float = 0.5):
+def run_ser_on_framework(framework_path: str):
+    """
+    Runs the Ser-based semantics on a single argumentation framework with a timeout.
+    """
     if not os.path.exists(framework_path):
         print(f"Error: Framework file not found at {framework_path}")
         return
 
     print("="*60)
-    print(f"Loading framework from: {framework_path}")
+    print(f"Processing framework: {os.path.basename(framework_path)}")
     print("="*60)
-    arg_framework = parse_af_file(framework_path)
-    print(f"Graph loaded with {arg_framework.number_of_nodes()} nodes and {arg_framework.number_of_edges()} edges.\n")
+    
+    try:
+        arg_framework = parse_af_file(framework_path)
+        all_args_sorted = sorted(list(arg_framework.nodes()))
+        
+        print(f"Graph loaded with {arg_framework.number_of_nodes()} nodes and {arg_framework.number_of_edges()} edges.")
+        print(f"Running Ser semantics with a {TIMEOUT_SECONDS}s timeout...", end="", flush=True)
 
-    # ======================= THE CHANGE IS HERE =======================
-    # Limit the number of cores to prevent system instability on complex tasks.
-    # Using half the cores is a safe starting point.
-    available_cores = mp.cpu_count()
-    num_cores = max(1, available_cores // 2)
-    print(f"Using a safe limit of {num_cores} out of {available_cores} available CPU cores.")
-    # ==================================================================
-
-    all_semantics_names = list(SEMANTICS_MAP_ANALYTICAL.keys()) + list(SEMANTICS_MAP_MC.keys())
-
-    for name in all_semantics_names:
-        print(f"\n--- Calculating Probabilistic Ranking for '{name}' Semantics ---")
+        # --- Multiprocessing for Timeout ---
+        result_queue = mp.Queue()
+        process = mp.Process(target=ser_worker, args=(arg_framework, result_queue))
+        
         start_time = time.time()
-        
-        scores = {}
-
-        if name in SEMANTICS_MAP_ANALYTICAL:
-            print("Using fast analytical method.")
-            calculator = SEMANTICS_MAP_ANALYTICAL[name](af=arg_framework, p=p_val) 
-            scores = calculator.get_scores()
-        
-        elif name in SEMANTICS_MAP_MC:
-            if name in ['complete', 'preferred', 'ideal']:
-                num_samples = SEMANTICS_SAMPLE_COUNTS['slow']
-            else:
-                num_samples = SEMANTICS_SAMPLE_COUNTS['default']
-
-            print(f"Using Monte Carlo simulation with {num_samples} samples on {num_cores} cores.")
-            
-            SemanticsClass = SEMANTICS_MAP_MC[name]
-            worker_func = partial(worker_run_single_sample, SemanticsClass=SemanticsClass, p_val=p_val)
-            
-            acceptance_counts = defaultdict(int)
-            completed_count = 0
-            
-            with mp.Pool(processes=num_cores, initializer=init_worker, initargs=(arg_framework,)) as pool:
-                results_iterator = pool.imap_unordered(worker_func, range(num_samples))
-
-                for credulously_accepted_set in results_iterator:
-                    for arg in credulously_accepted_set:
-                        acceptance_counts[arg] += 1
-                    
-                    completed_count += 1
-                    print(f"\rSimulations analyzed: {completed_count}/{num_samples}", end="")
-            
-            print() 
-
-            scores = {arg: count / num_samples for arg, count in acceptance_counts.items()}
-        
+        process.start()
+        process.join(TIMEOUT_SECONDS)
         end_time = time.time()
-        print(f"Calculation finished in {end_time - start_time:.2f} seconds.")
 
-        sorted_args = sorted(scores, key=scores.get, reverse=True)
-        print("\nTop 5 Ranked Arguments:")
-        for arg in sorted_args[:5]:
-            format_str = "{:.4e}" if name == 'stable' and scores.get(arg, 0.0) < 0 else "{:.4f}"
-            print(f"  Score({arg}) = {format_str.format(scores.get(arg, 0.0))}")
-        
-        print("\n" + "-"*60 + "\n")
+        if process.is_alive():
+            # Process is still running, so the timeout was reached.
+            process.terminate()
+            process.join()
+            print(" TIMEOUT!")
+            print(f"Calculation exceeded the {TIMEOUT_SECONDS} second limit.")
+        else:
+            # Process finished in time.
+            result = result_queue.get()
+            if isinstance(result, Exception):
+                # An error occurred inside the worker process.
+                print(" ERROR!")
+                raise result
+
+            print(f" done in {end_time - start_time:.4f} seconds.")
+            ranking_groups = result
+            final_ranking = convert_groups_to_ranking(ranking_groups, all_args_sorted)
+            
+            # --- Display the results ---
+            print("\n--- Final Argument Ranking ---")
+            if len(final_ranking) > 15:
+                print(f"Top 15 arguments: {final_ranking[:15]}")
+                print(f"(... and {len(final_ranking) - 15} more arguments)")
+            else:
+                print(final_ranking)
+
+        print("\n" + "="*60 + "\n")
+
+    except Exception as e:
+        print(f"\n!!! An error occurred while processing {framework_path}: {e}\n")
+
 
 if __name__ == '__main__':
+    # It's good practice to use 'fork' for multiprocessing on Unix-like systems.
     try:
         mp.set_start_method("fork")
     except RuntimeError:
-        print("Fork start method not available, using default.")
+        print("Using default multiprocessing start method.")
 
-    af_file_path = os.path.join("data/benchmarks2023/main", "admbuster_2500000.af")
-    run_prob_for_all_semantics(af_file_path)
+    # Directory where the generated benchmarks are stored.
+    benchmark_dir = os.path.join("data", "benchmarks_generated")
+    
+    print("===================================================")
+    print("  Running Ser Semantics on all Generated Benchmarks  ")
+    print("===================================================\n")
+
+    if not os.path.exists(benchmark_dir):
+        print(f"Error: Benchmark directory not found at '{benchmark_dir}'")
+        print("Please run the 'generate_benchmarks.py' script first.")
+    else:
+        framework_files = sorted([f for f in os.listdir(benchmark_dir) if f.endswith(".af")])
+
+        if not framework_files:
+            print(f"No '.af' benchmark files found in '{benchmark_dir}'.")
+        else:
+            print(f"Found {len(framework_files)} benchmark(s) to process.\n")
+            for filename in framework_files:
+                full_path = os.path.join(benchmark_dir, filename)
+                run_ser_on_framework(full_path)
+            
+            print("All benchmarks have been processed.")
