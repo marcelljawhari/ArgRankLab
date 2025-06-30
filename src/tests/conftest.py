@@ -44,7 +44,6 @@ def three_cycle_framework():
     graph.add_edge("3", "1")
     return graph
 
-
 @pytest.fixture
 def self_attack_framework():
     """Creates a framework with a single self-attacking argument."""
@@ -53,38 +52,11 @@ def self_attack_framework():
     return graph
 
 @pytest.fixture
-def mutual_attack_framework():
-    """Creates a framework with two mutually attacking arguments."""
-    graph = nx.DiGraph()
-    graph.add_edge("1", "2")
-    graph.add_edge("2", "1")
-    return graph
-
-
-@pytest.fixture
-def three_cycle_framework():
-    """Creates a framework with a 3-argument cycle (1->2, 2->3, 3->1)."""
-    graph = nx.DiGraph()
-    graph.add_edge("1", "2")
-    graph.add_edge("2", "3")
-    graph.add_edge("3", "1")
-    return graph
-
-@pytest.fixture
 def defense_chain_framework():
     """Creates a simple defense chain: 1 -> 2 -> 3."""
     graph = nx.DiGraph()
     graph.add_edge("1", "2")
     graph.add_edge("2", "3")
-    return graph
-
-
-@pytest.fixture
-def mutual_attack_framework():
-    """Creates a framework with two mutually attacking arguments (1<->2)."""
-    graph = nx.DiGraph()
-    graph.add_edge("1", "2")
-    graph.add_edge("2", "1")
     return graph
 
 @pytest.fixture
