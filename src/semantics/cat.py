@@ -13,7 +13,7 @@ class Cat:
     attackers, as defined by Pu et al. [PLZL14]. The strength of each
     argument is calculated iteratively until convergence.
     """
-    def __init__(self, af: nx.DiGraph, tolerance: float = 1e-8, max_iterations: int = 150):
+    def __init__(self, af: nx.DiGraph, tolerance: float = 1e-8, max_iterations: int = 1000):
         """
         Initializes the Categoriser semantics calculator.
 
@@ -51,11 +51,11 @@ class Cat:
 
         This method solves this system of equations for all arguments simultaneously.
         """
-        print("Categoriser-based semantics calculation started...")
+        # print("Categoriser-based semantics calculation started...")
         start_time = time.time()
 
         if self.num_args == 0:
-            print("Graph has no arguments.")
+            # print("Graph has no arguments.")
             return
 
         # We need the transpose of the adjacency matrix.
@@ -69,7 +69,7 @@ class Cat:
         # Initialize strengths vector S with zeros.
         strengths_vector = np.zeros(self.num_args)
 
-        print(f"Iteratively solving for {self.num_args} arguments...")
+        # print(f"Iteratively solving for {self.num_args} arguments...")
         for i in range(self.max_iterations):
             old_strengths = strengths_vector
 
@@ -81,13 +81,13 @@ class Cat:
             
             # Check for convergence using the infinity norm (maximum absolute difference).
             if np.linalg.norm(strengths_vector - old_strengths, ord=np.inf) < self.tolerance:
-                print(f"Converged after {i + 1} iterations.")
+                # print(f"Converged after {i + 1} iterations.")
                 break
         else: # This else clause executes if the for loop completes without a 'break'.
             print(f"Warning: Did not converge within {self.max_iterations} iterations.")
 
         self._strengths = {arg: strengths_vector[self.arg_to_index[arg]] for arg in self.arguments}
-        print(f"Strength calculation finished in {time.time() - start_time:.2f} seconds.")
+        # print(f"Strength calculation finished in {time.time() - start_time:.2f} seconds.")
 
     def _build_ranking(self):
         """

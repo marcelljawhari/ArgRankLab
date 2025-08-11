@@ -23,10 +23,9 @@ def test_prob_grounded_extensions_on_3_cycle(three_cycle_framework):
     Tests that for a 3-cycle, the grounded extension is the empty set.
     """
     prob = ProbGrounded(three_cycle_framework)
-    # With no unattacked arguments, the grounded extension is empty.
     extensions = prob._find_extensions_in_subgraph(three_cycle_framework)
-    # The implementation returns an empty list for an empty extension.
-    assert extensions == []
+    # The grounded extension is the empty set, represented as a frozenset in a list.
+    assert extensions == [frozenset()]
 
 def test_prob_grounded_extensions_on_defense_chain(defense_chain_framework):
     """

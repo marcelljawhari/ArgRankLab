@@ -29,7 +29,7 @@ class ProbAdmissible:
         all_args = list(self.af.nodes)
 
         for i, arg_a in enumerate(all_args):
-            print(f"\rCalculating analytical score for argument {i+1}/{len(all_args)}...", end="")
+            # print(f"\rCalculating analytical score for argument {i+1}/{len(all_args)}...", end="")
 
             # 1. Probability that 'a' itself exists.
             prob_a_exists = self.p
@@ -69,4 +69,4 @@ class ProbAdmissible:
             # Final score for 'a' is the product of these probabilities.
             self._scores[arg_a] = prob_a_exists * prob_a_is_cf * prob_a_is_defended
         
-        print("\rAnalytical calculation complete.                      ")
+        # print("\rAnalytical calculation complete.                      ")

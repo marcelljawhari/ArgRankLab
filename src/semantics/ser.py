@@ -1,4 +1,4 @@
-# semantics/ser_sat.py
+# semantics/ser.py
 
 import os
 import time

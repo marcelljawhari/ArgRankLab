@@ -40,7 +40,7 @@ class ProbStable:
         log_1_minus_p = math.log(1 - self.p)
 
         for i, arg_a in enumerate(self.all_nodes):
-            print(f"\rCalculating analytical log-score for argument {i+1}/{self.num_nodes}...", end="")
+            # print(f"\rCalculating analytical log-score for argument {i+1}/{self.num_nodes}...", end="")
 
             # 1. Log-probability that 'a' itself exists.
             log_prob_a_exists = log_p
@@ -61,4 +61,4 @@ class ProbStable:
             # The final log-score is the sum of the log-probabilities.
             self._scores[arg_a] = log_prob_a_exists + log_prob_attacks_external
         
-        print("\rAnalytical calculation complete.                      ")
+        # print("\rAnalytical calculation complete.                      ")

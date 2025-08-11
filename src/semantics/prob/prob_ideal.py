@@ -1,54 +1,72 @@
-# semantics/prob/prob_ideal.py
-
 import networkx as nx
+from typing import List, FrozenSet, Any, Set, Optional
 from .prob_base import ProbabilisticSemantics
-from .prob_preferred import ProbPreferred # Ideal semantics depends on preferred
-from typing import List, FrozenSet, Any
+
+try:
+    import pysat.solvers
+except ImportError:
+    pysat = None
 
 class ProbIdeal(ProbabilisticSemantics):
-    """Probabilistic ranking based on ideal semantics."""
+    """
+    Probabilistic ranking based on ideal semantics.
+    Uses the state-of-the-art CDIS algorithm to find the unique ideal extension
+    without enumerating all preferred extensions.
+    """
+    def _find_admissible_attacker_of(self, subgraph: nx.DiGraph, candidate_set_P: Set[Any]) -> Optional[Set[Any]]:
+        """
+        Finds an admissible set S that attacks at least one argument in the candidate set P.
+        """
+        if not candidate_set_P:
+            return None
+        
+        clauses, arg_map, var_map = self._get_complete_encoding(subgraph)
+        N = len(var_map)
+
+        with pysat.solvers.Glucose4() as solver:
+            solver.append_formula(clauses)
+            potential_attacker_vars = {var_map[s] for p in candidate_set_P for s in subgraph.predecessors(p) if s in var_map}
+            
+            if not potential_attacker_vars:
+                return None
+
+            solver.add_clause(list(potential_attacker_vars))
+            
+            if solver.solve():
+                model = solver.get_model()
+                return {arg_map[v] for v in model if v > 0 and v <= N}
+        return None
 
     def _find_extensions_in_subgraph(self, subgraph: nx.DiGraph) -> List[FrozenSet[Any]]:
         """
-        Finds the unique ideal extension.
-        It is the largest admissible set contained in the intersection of all
-        preferred extensions.
+        Finds the unique ideal extension using the CDIS algorithm.
         """
         if not subgraph.nodes:
-            return []
-
-        # Step 1: Find all preferred extensions
-        preferred_finder = ProbPreferred(subgraph)
-        preferred_extensions = preferred_finder._find_extensions_in_subgraph(subgraph)
-
-        if not preferred_extensions:
-            # Should not happen if graph is non-empty, as empty set is admissible
             return [frozenset()]
+        if pysat is None:
+            raise ImportError("PySAT library is required for this method. Please install with 'pip install python-sat'")
 
-        # Step 2: Find the intersection of all preferred extensions
-        intersection_of_preferred = set.intersection(*map(set, preferred_extensions))
-
-        if not intersection_of_preferred:
-            return [frozenset()]
-
-        # Step 3: Find the largest admissible subset of this intersection
-        ideal_extension = frozenset()
-        
-        # Iterate through powerset of the intersection to find admissible sets
-        intersection_nodes = list(intersection_of_preferred)
-        for i in range(1 << len(intersection_nodes)):
-            subset = frozenset(node for j, node in enumerate(intersection_nodes) if (i >> j) & 1)
+        # Phase 1: Compute the Preferred Super-Core (P)
+        P = set(subgraph.nodes)
+        while True:
+            S = self._find_admissible_attacker_of(subgraph, P)
+            if not S:
+                break
             
-            if len(subset) > len(ideal_extension) and self._is_admissible(subgraph, subset):
-                ideal_extension = subset
-                
-        return [ideal_extension]
+            attacked_by_S = {target for s_arg in S for target in subgraph.successors(s_arg)}
+            P -= attacked_by_S
+        
+        # Phase 2: Compute the largest admissible set within P
+        p_subgraph = subgraph.subgraph(P).copy()
+        while True:
+            removed_in_iteration = {
+                p_arg for p_arg in p_subgraph.nodes() if not 
+                all(any(p_subgraph.has_edge(d, att) for d in p_subgraph.nodes()) for att in p_subgraph.predecessors(p_arg))
+            }
+            
+            if not removed_in_iteration:
+                break
+            
+            p_subgraph.remove_nodes_from(removed_in_iteration)
 
-    def _is_admissible(self, subgraph: nx.DiGraph, s: FrozenSet[Any]) -> bool:
-        """Checks if a set is admissible."""
-        if not self._is_conflict_free(subgraph, s):
-            return False
-        for arg in s:
-            if not self._defends(subgraph, s, arg):
-                return False
-        return True
+        return [frozenset(p_subgraph.nodes())]
