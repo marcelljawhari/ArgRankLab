@@ -23,7 +23,6 @@ def parse_af_file(file_path: str) -> nx.DiGraph:
     try:
         with open(file_path, 'r') as f:
             for line in f:
-                # Clean up the line
                 line = line.strip()
 
                 # Skip empty lines or comments

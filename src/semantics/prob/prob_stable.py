@@ -6,14 +6,6 @@ import math
 class ProbStable:
     """
     Calculates probabilistic scores for arguments based on stable semantics.
-
-    ============================================================================
-    IMPORTANT IMPLEMENTATION NOTE:
-    This implementation uses a fast, DIRECT ANALYTICAL method. To handle
-    the extremely small probabilities resulting from the global nature of
-    stable semantics on sparse graphs, it computes LOG-PROBABILITIES for
-    ranking. A higher (less negative) score is better.
-    ============================================================================
     """
     def __init__(self, af: nx.DiGraph, p: float = 0.5):
         self.af = af

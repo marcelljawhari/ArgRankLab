@@ -6,7 +6,6 @@ class ProbGrounded(ProbabilisticSemantics):
     """
     Probabilistic ranking based on the grounded semantics.
     Uses an efficient iterative algorithm to find the unique grounded extension.
-    This algorithm is correct and efficient for all graph types.
     """
     def _find_extensions_in_subgraph(self, subgraph: nx.DiGraph) -> List[FrozenSet[Any]]:
         """

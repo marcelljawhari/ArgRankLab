@@ -10,7 +10,7 @@ except ImportError:
 class ProbIdeal(ProbabilisticSemantics):
     """
     Probabilistic ranking based on ideal semantics.
-    Uses the state-of-the-art CDIS algorithm to find the unique ideal extension
+    Uses the CDIS algorithm to find the unique ideal extension
     without enumerating all preferred extensions.
     """
     def _find_admissible_attacker_of(self, subgraph: nx.DiGraph, candidate_set_P: Set[Any]) -> Optional[Set[Any]]:

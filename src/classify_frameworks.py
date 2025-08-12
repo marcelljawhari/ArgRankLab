@@ -127,7 +127,6 @@ def main():
     print("=" * 60)
 
 if __name__ == '__main__':
-    # Optional: Install tqdm for a nice progress bar: pip install tqdm
     try:
         from tqdm import tqdm
     except ImportError:

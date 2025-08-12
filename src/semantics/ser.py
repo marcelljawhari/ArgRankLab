@@ -10,10 +10,6 @@ class Ser:
     """
     Implements the serialisability-based ranking semantics using a SAT-based
     approach to find initial sets, as described by Bengel & Thimm (2023).
-
-    The core logic for serialised construction is the same as the backtracking
-    version, but the computationally expensive step of finding minimal admissible
-    sets is delegated to a high-performance SAT solver.
     """
     def __init__(self, af: nx.DiGraph, max_recursion_depth: int = 15):
         if not isinstance(af, nx.DiGraph):

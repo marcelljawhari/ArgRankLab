@@ -33,8 +33,8 @@ TIMEOUT_SECONDS = 600
 FAST_SEMANTICS = {
     "Cat": Cat,
     "Dbs": Dbs,
-    "p-Stable": ProbStable, # This is the analytical one
-    "p-Admissible": ProbAdmissible, # This is the analytical one
+    "p-Stable": ProbStable,
+    "p-Admissible": ProbAdmissible,
 }
 SLOW_SEMANTICS = {
     "Ser": Ser,

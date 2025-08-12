@@ -1,7 +1,3 @@
-# ===================================================================
-# File: semantics/prob/prob_base.py
-# Note: This is now a smart, dispatching base class.
-# ===================================================================
 import abc
 import random
 from collections import defaultdict
@@ -20,7 +16,6 @@ class ProbabilisticSemantics(abc.ABC):
         self.p = p
         self.all_nodes: List[Any] = list(self.af.nodes)
         self._scores: Dict[Any, float] | None = None
-        # REMOVED: The fixed exact_threshold is no longer needed.
 
     @abc.abstractmethod
     def _find_extensions_in_subgraph(self, subgraph: nx.DiGraph) -> List[FrozenSet[Any]]:
@@ -42,7 +37,7 @@ class ProbabilisticSemantics(abc.ABC):
 
     def _calculate_scores(self) -> None:
         """
-        Smart dispatcher for calculating probabilistic scores.
+        Smart function for calculating probabilistic scores.
         - If the total number of possible subgraphs is less than the number of
           samples, it performs an exact calculation.
         - Otherwise, it falls back to a Monte Carlo simulation.

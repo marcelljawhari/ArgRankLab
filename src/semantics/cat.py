@@ -8,10 +8,6 @@ import time
 class Cat:
     """
     Implements the Categoriser-based ranking semantics (Cat).
-
-    This semantics evaluates argument strength based on the strength of its
-    attackers, as defined by Pu et al. [PLZL14]. The strength of each
-    argument is calculated iteratively until convergence.
     """
     def __init__(self, af: nx.DiGraph, tolerance: float = 1e-8, max_iterations: int = 1000):
         """
