@@ -31,7 +31,6 @@ class ProbStable:
     def _calculate_scores(self) -> None:
         """
         Computes the log-score for each argument 'a' as log(Pr({a} is stable)).
-        This is optimized to be O(N).
         """
         self._scores = {}
         
